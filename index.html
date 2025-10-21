@@ -39,6 +39,7 @@
     /* center content */
     .center{
       position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; gap:18px;
+      width:100%; text-align:center;
     }
 
     h1{
@@ -48,11 +49,14 @@
       font-size:clamp(36px,6.2vw,64px);
       letter-spacing:6px;
       transform:skewX(-4deg);
+      transform-origin:center;
       color:var(--deep);
       padding:8px 20px;
       background:linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,240,210,0.9));
       border-radius:10px;
       border:1px solid rgba(107,43,0,0.03);
+      display:inline-block;
+      text-align:center;
     }
 
     .card{
@@ -71,7 +75,7 @@
     }
 
     .card .title-small{ font-weight:800; color:var(--deep); font-size:18px; }
-    .card .subtitle{ color:var(--muted); font-weight:700; font-size:15px; }
+    .card .subtitle{ color:var(--muted); font-weight:700; font-size:15px }
 
     /* countdown fixed top-right (kept) */
     .countdown {
@@ -89,6 +93,7 @@
       .countdown{ top:12px; right:10px; min-width:150px; padding:8px; gap:8px; }
       h1{ font-size:clamp(28px,9vw,44px); letter-spacing:4px; padding:6px 14px; }
       .hero{ padding:18px; border-radius:12px; }
+      .center{ padding-top:6px; } /* help vertical centering on short screens */
     }
   </style>
 </head>
@@ -158,53 +163,57 @@
       setInterval(() => { target = getTarget(); }, 60*60*1000);
     })();
 
-    /* quiet golden confetti (subtle) */
+    /* confetti (same animation on mobile & desktop; centered content fixed) */
     (function(){
       const canvas = document.getElementById('confetti');
       const ctx = canvas.getContext('2d');
 
       function resize(){
+        const rect = canvas.getBoundingClientRect();
         const ratio = window.devicePixelRatio || 1;
-        canvas.width = Math.floor(canvas.clientWidth * ratio);
-        canvas.height = Math.floor(canvas.clientHeight * ratio);
-        canvas.style.width = canvas.clientWidth + 'px';
-        canvas.style.height = canvas.clientHeight + 'px';
+        canvas.width = Math.round(rect.width * ratio);
+        canvas.height = Math.round(rect.height * ratio);
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
         ctx.setTransform(ratio,0,0,ratio,0,0);
       }
       window.addEventListener('resize', resize);
+      // ensure resize after fonts/layout settle
+      setTimeout(resize, 120);
       resize();
 
-      function Conf(x,y,w,h,color,rot,rs,vx,vy,life){
-        this.x=x;this.y=y;this.w=w;this.h=h;this.color=color;this.rot=rot;this.rs=rs;this.vx=vx;this.vy=vy;this.age=0;this.life=life;
+      function Particle(x,y,w,h,color,rot,rotSpeed,vx,vy,life){
+        this.x=x; this.y=y; this.w=w; this.h=h; this.color=color; this.rot=rot; this.rotSpeed=rotSpeed;
+        this.vx=vx; this.vy=vy; this.age=0; this.life=life;
       }
-      Conf.prototype.step = function(){
+      Particle.prototype.step = function(){
         this.x += this.vx;
         this.y += this.vy;
-        this.rot += this.rs;
-        this.vx *= 0.998;
-        this.vy += 0.02;
+        this.rot += this.rotSpeed;
+        this.vx *= 0.997;
+        this.vy += 0.025; // gravity
         this.age++;
       };
 
       const particles = [];
       const PALETTE = ['#ffd86a','#ffcf5a','#ffb24a','#ffe8c4'];
-      let frame=0, raf=null;
+      let frame = 0, raf = null;
 
       function spawnBatch(){
         const wbox = canvas.clientWidth;
-        const count = 5 + Math.floor(Math.random()*6);
+        const count = 6 + Math.floor(Math.random()*8); // modest but consistent across devices
         for(let i=0;i<count;i++){
-          const x = Math.random()*wbox;
-          const y = -10 - Math.random()*30;
+          const x = Math.random() * wbox;
+          const y = -10 - Math.random()*50;
           const w = 6 + Math.random()*10;
-          const h = 8 + Math.random()*16;
+          const h = 8 + Math.random()*18;
           const color = PALETTE[Math.floor(Math.random()*PALETTE.length)];
           const rot = Math.random()*Math.PI*2;
-          const rs = (Math.random()*0.08 - 0.04);
-          const vx = (Math.random()-0.5)*0.6;
-          const vy = 0.6 + Math.random()*1.1;
-          const life = 300 + Math.floor(Math.random()*300);
-          particles.push(new Conf(x,y,w,h,color,rot,rs,vx,vy,life));
+          const rotSpeed = (Math.random()*0.12 - 0.06);
+          const vx = (Math.random()-0.5) * 0.8;
+          const vy = 0.8 + Math.random()*1.6;
+          const life = 280 + Math.floor(Math.random()*260);
+          particles.push(new Particle(x,y,w,h,color,rot,rotSpeed,vx,vy,life));
         }
       }
 
@@ -213,7 +222,7 @@
         ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);
 
         for(let i=particles.length-1;i>=0;i--){
-          const p=particles[i];
+          const p = particles[i];
           p.step();
           const alpha = Math.max(0, 1 - (p.age / p.life));
           ctx.save();
@@ -223,27 +232,26 @@
           ctx.fillStyle = p.color;
           ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
           ctx.restore();
-          if(p.y > canvas.clientHeight + 60 || p.age > p.life) particles.splice(i,1);
+
+          if(p.y > canvas.clientHeight + 80 || p.age > p.life) particles.splice(i,1);
         }
 
-        if(frame % (50 + Math.floor(Math.random()*50)) === 0) spawnBatch();
+        // consistent spawn frequency across devices
+        if(frame % (36 + Math.floor(Math.random()*28)) === 0) spawnBatch();
 
         raf = requestAnimationFrame(loop);
       }
 
-      // default: enabled on larger screens, off on very small for perf
-      const enabled = !window.matchMedia('(max-width:420px)').matches;
-      if(enabled) {
-        spawnBatch();
-        loop();
-      }
+      // always enable (mobile & desktop) to match animation
+      spawnBatch();
+      loop();
 
-      // stop on small screens automatically
-      window.matchMedia('(max-width:420px)').addEventListener('change', (e)=>{
-        if(e.matches){ if(raf){ cancelAnimationFrame(raf); raf=null; particles.length=0; ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);} }
-        else { if(!raf){ spawnBatch(); loop(); } }
-      });
+      // ensure canvas resizes correctly after orientation change
+      window.addEventListener('orientationchange', () => { setTimeout(() => { resize(); }, 160); });
+
     })();
   </script>
 </body>
 </html>
+
+
