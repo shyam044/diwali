@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Happy Diwali — Countdown</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --paper:#fff6ea;
+      --marigold:#ffb74d;
+      --deep:#6b2b00;
+      --muted:#6b5a50;
+      --gold1:#ffd86a;
+      --accent:#ff7a2d;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:"Nunito",system-ui,Arial;color:var(--deep);background:linear-gradient(180deg,#fffaf3,#fff6ea);-webkit-font-smoothing:antialiased}
+    body{padding:18px;display:flex;align-items:center;justify-content:center;min-height:100vh;}
+
+    /* container */
+    .hero{
+      width:100%;
+      max-width:880px;
+      border-radius:14px;
+      padding:28px;
+      position:relative;
+      background:linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,247,236,0.95));
+      border:1px solid rgba(107,43,0,0.04);
+      box-shadow:0 18px 40px rgba(107,43,0,0.08);
+      overflow:hidden;
+    }
+
+    /* confetti canvas */
+    #confetti { position:absolute; inset:0; width:100%; height:100%; z-index:1; pointer-events:none; }
+
+    /* center content */
+    .center{
+      position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; gap:18px;
+    }
+
+    h1{
+      margin:0;
+      font-family:"Montserrat",sans-serif;
+      font-weight:900;
+      font-size:clamp(36px,6.2vw,64px);
+      letter-spacing:6px;
+      transform:skewX(-4deg);
+      color:var(--deep);
+      padding:8px 20px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,240,210,0.9));
+      border-radius:10px;
+      border:1px solid rgba(107,43,0,0.03);
+    }
+
+    .card{
+      width:100%;
+      max-width:680px;
+      background:linear-gradient(180deg,#fffdf7,#fff6ea);
+      border-radius:12px;
+      padding:18px 20px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+      box-shadow:0 8px 22px rgba(107,43,0,0.06);
+      border:1px solid rgba(107,43,0,0.03);
+      text-align:center;
+    }
+
+    .card .title-small{ font-weight:800; color:var(--deep); font-size:18px; }
+    .card .subtitle{ color:var(--muted); font-weight:700; font-size:15px; }
+
+    /* countdown fixed top-right (kept) */
+    .countdown {
+      position:fixed; top:18px; right:18px; z-index:9999;
+      display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:12px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,247,236,0.98));
+      border:1px solid rgba(107,43,0,0.06); min-width:190px; box-shadow:0 10px 40px rgba(107,43,0,0.12);
+      color:var(--deep); font-weight:800; font-family:"Montserrat",sans-serif;
+    }
+    .countdown .label{ font-size:12px; color:var(--muted); font-weight:800; }
+    .countdown .small{ font-size:11px; color:rgba(107,43,0,0.6); font-weight:700; }
+    .countdown .time{ padding:8px 12px; border-radius:10px; background:linear-gradient(90deg,#fff7ea,#fff1df); color:var(--accent); font-size:18px; letter-spacing:1px; font-weight:900; min-width:84px; text-align:center; box-shadow: inset 0 -6px 12px rgba(0,0,0,0.04); }
+
+    @media (max-width:520px){
+      .countdown{ top:12px; right:10px; min-width:150px; padding:8px; gap:8px; }
+      h1{ font-size:clamp(28px,9vw,44px); letter-spacing:4px; padding:6px 14px; }
+      .hero{ padding:18px; border-radius:12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="countdown" role="region" aria-live="polite" aria-label="Countdown to Muhurat trading">
+    <div style="display:flex;flex-direction:column;align-items:flex-start;">
+      <div class="label">Muhurat trading</div>
+      <div class="small">starts at 01:45 PM</div>
+    </div>
+    <div id="countdownTime" class="time">--:--:--</div>
+  </div>
+
+  <main class="hero" role="main" aria-labelledby="pageTitle">
+    <canvas id="confetti" aria-hidden="true"></canvas>
+
+    <div class="center">
+      <h1 id="pageTitle">HAPPY DIWALI</h1>
+
+      <div class="card" role="group" aria-label="Muhurat information">
+        <div class="title-small">Muhurat Trading — Today</div>
+        <div class="subtitle">Starts at 01:45 PM</div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    /* countdown */
+    (function(){
+      const display = document.getElementById('countdownTime');
+      const box = document.querySelector('.countdown');
+
+      function getTarget() {
+        const now = new Date();
+        const t = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 13, 45, 0, 0);
+        if(now >= t) t.setDate(t.getDate() + 1);
+        return t;
+      }
+      let target = getTarget();
+
+      function pad(n){ return (n<10 ? '0' : '') + n; }
+      function formatDuration(ms){
+        if(ms <= 0) return {expired:true, text:'00:00:00'};
+        const total = Math.floor(ms/1000);
+        const hrs = Math.floor(total/3600);
+        const mins = Math.floor((total%3600)/60);
+        const secs = total%60;
+        return {expired:false, text: pad(hrs) + ':' + pad(mins) + ':' + pad(secs), hrs, mins, secs};
+      }
+
+      function update(){
+        const now = new Date();
+        const diff = target - now;
+        const info = formatDuration(diff);
+        display.textContent = info.text;
+        box.setAttribute('aria-label', 'Time remaining until Muhurat: ' + info.text);
+
+        if(info.expired) {
+          box.classList.add('expired');
+          display.textContent = "LIVE";
+          setTimeout(() => { box.classList.remove('expired'); target = getTarget(); }, 2500);
+        }
+      }
+
+      update();
+      setInterval(update, 1000);
+      setInterval(() => { target = getTarget(); }, 60*60*1000);
+    })();
+
+    /* quiet golden confetti (subtle) */
+    (function(){
+      const canvas = document.getElementById('confetti');
+      const ctx = canvas.getContext('2d');
+
+      function resize(){
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(canvas.clientWidth * ratio);
+        canvas.height = Math.floor(canvas.clientHeight * ratio);
+        canvas.style.width = canvas.clientWidth + 'px';
+        canvas.style.height = canvas.clientHeight + 'px';
+        ctx.setTransform(ratio,0,0,ratio,0,0);
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      function Conf(x,y,w,h,color,rot,rs,vx,vy,life){
+        this.x=x;this.y=y;this.w=w;this.h=h;this.color=color;this.rot=rot;this.rs=rs;this.vx=vx;this.vy=vy;this.age=0;this.life=life;
+      }
+      Conf.prototype.step = function(){
+        this.x += this.vx;
+        this.y += this.vy;
+        this.rot += this.rs;
+        this.vx *= 0.998;
+        this.vy += 0.02;
+        this.age++;
+      };
+
+      const particles = [];
+      const PALETTE = ['#ffd86a','#ffcf5a','#ffb24a','#ffe8c4'];
+      let frame=0, raf=null;
+
+      function spawnBatch(){
+        const wbox = canvas.clientWidth;
+        const count = 5 + Math.floor(Math.random()*6);
+        for(let i=0;i<count;i++){
+          const x = Math.random()*wbox;
+          const y = -10 - Math.random()*30;
+          const w = 6 + Math.random()*10;
+          const h = 8 + Math.random()*16;
+          const color = PALETTE[Math.floor(Math.random()*PALETTE.length)];
+          const rot = Math.random()*Math.PI*2;
+          const rs = (Math.random()*0.08 - 0.04);
+          const vx = (Math.random()-0.5)*0.6;
+          const vy = 0.6 + Math.random()*1.1;
+          const life = 300 + Math.floor(Math.random()*300);
+          particles.push(new Conf(x,y,w,h,color,rot,rs,vx,vy,life));
+        }
+      }
+
+      function loop(){
+        frame++;
+        ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);
+
+        for(let i=particles.length-1;i>=0;i--){
+          const p=particles[i];
+          p.step();
+          const alpha = Math.max(0, 1 - (p.age / p.life));
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+          ctx.restore();
+          if(p.y > canvas.clientHeight + 60 || p.age > p.life) particles.splice(i,1);
+        }
+
+        if(frame % (50 + Math.floor(Math.random()*50)) === 0) spawnBatch();
+
+        raf = requestAnimationFrame(loop);
+      }
+
+      // default: enabled on larger screens, off on very small for perf
+      const enabled = !window.matchMedia('(max-width:420px)').matches;
+      if(enabled) {
+        spawnBatch();
+        loop();
+      }
+
+      // stop on small screens automatically
+      window.matchMedia('(max-width:420px)').addEventListener('change', (e)=>{
+        if(e.matches){ if(raf){ cancelAnimationFrame(raf); raf=null; particles.length=0; ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);} }
+        else { if(!raf){ spawnBatch(); loop(); } }
+      });
+    })();
+  </script>
+</body>
+</html>
